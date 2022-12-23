@@ -1,0 +1,11 @@
+.Rproj.user
+.DS_Store
+.Rbuildignore
+.RData
+.Renviron
+.Rhistory
+.Rprofile
+inst/cdmx-shapes-app/rsconnect
+inst/cdmx-shapes-app/.Rbuidignore
+inst/cdmx-shapes-app/.DS_Store
+inst/cdmx-shapes-app/down_shapes
