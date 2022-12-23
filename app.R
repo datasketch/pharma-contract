@@ -58,9 +58,6 @@ ui <- panelsPage(
 server <- function(input, output, session) {
   
   
-  # data --------------------------------------------------------------------
-  
-  
   
   # controls ----------------------------------------------------------------
   
@@ -91,22 +88,88 @@ server <- function(input, output, session) {
       l[[button_id]] <- HTML(paste0(paste(l[[button_id]], collapse = '')))
       if (last_btn == "a") {
         l[[button_id]] <- gsub("menu-line", "", l[[button_id]])
+        req(data_load())
+        df <- data_load()
         l[[button_id]] <- div(l[[button_id]],
-                              selectizeInput("test1", "test bla", c("un", "dos", "tres")),
+                              selectizeInput("request_countries", 
+                                             "Country",
+                                             setdiff(unique(df$`Request Country`), NA),
+                                             multiple = TRUE,
+                                             options = list(
+                                               placeholder = "All",
+                                               plugins = list(
+                                                 "remove_button",
+                                                 "drag_drop"))),
+                              selectizeInput("request_status", 
+                                             "Status",
+                                             setdiff(unique(df$Status), NA),
+                                             multiple = TRUE,
+                                             options = list(
+                                               placeholder = "All",
+                                               plugins = list(
+                                                 "remove_button",
+                                                 "drag_drop"))),
                               div(class = "menu-line")
         )
       }
       if (last_btn == "b") {
         l[[button_id]] <- gsub("menu-line", "", l[[button_id]])
+        req(data_load())
+        df <- data_load()
         l[[button_id]] <- div(l[[button_id]],
-                              radioButtons("test1", "test bla", c("un", "dos", "tres")),
+                              selectizeInput("appeals_countries", 
+                                             "Country",
+                                             setdiff(unique(df$Country), NA),
+                                             multiple = TRUE,
+                                             options = list(
+                                               placeholder = "All",
+                                               plugins = list(
+                                                 "remove_button",
+                                                 "drag_drop"))),
+                              selectizeInput("appeals_status", 
+                                             "Status",
+                                             setdiff(unique(df$Status), NA),
+                                             multiple = TRUE,
+                                             options = list(
+                                               placeholder = "All",
+                                               plugins = list(
+                                                 "remove_button",
+                                                 "drag_drop"))),
                               div(class = "menu-line")
         )
       }
       if (last_btn == "c") {
         l[[button_id]] <- gsub("menu-line", "", l[[button_id]])
+        req(data_load())
+        df <- data_load()
         l[[button_id]] <- div(l[[button_id]],
-                              checkboxGroupInput("test1", "test bla", c("un", "dos", "tres")),
+                              selectizeInput("contracts_countries", 
+                                             "Country",
+                                             setdiff(unique(df$Country), NA),
+                                             multiple = TRUE,
+                                             options = list(
+                                               placeholder = "All",
+                                               plugins = list(
+                                                 "remove_button",
+                                                 "drag_drop"))),
+                              selectizeInput("contracts_supplier", 
+                                             "Status",
+                                             setdiff(unique(df$Supplier), NA),
+                                             multiple = TRUE,
+                                             options = list(
+                                               placeholder = "All",
+                                               plugins = list(
+                                                 "remove_button",
+                                                 "drag_drop"))),
+                              selectizeInput("contracts_vaccine", 
+                                             "Vaccine",
+                                             setdiff(unique(df$Vaccine), NA),
+                                             multiple = TRUE,
+                                             options = list(
+                                               placeholder = "All",
+                                               plugins = list(
+                                                 "remove_button",
+                                                 "drag_drop"))),
                               div(class = "menu-line")
         )
       }
@@ -117,8 +180,50 @@ server <- function(input, output, session) {
   })
   
   
+  # data --------------------------------------------------------------------
+  
+  data_load <-
+    isolate({
+      reactivePoll(1000,
+                   session,
+                   checkFunc = function() {
+                     if (is.null(chosen_menu$id)) return()
+                     df <- NULL
+                     if (chosen_menu$id == "a") {
+                       df <-    "data/data_request.RData"
+                     }
+                     if (chosen_menu$id %in% "b") {
+                       df <- "data/data_appeals.RData"
+                     }
+                     if (chosen_menu$id %in% "c") {
+                       df <- "data/data_contracts.RData"
+                     }  
+                     if (file.exists(df))
+                       file.info(df)$uid
+                     else
+                       shinyalert(title = "file",text = "Archivo no encontrado")
+                   },
+                   
+                   valueFunc = function() {
+                     if (is.null(chosen_menu$id)) return()
+                     load_data <- NULL
+                     if (chosen_menu$id == "a") {
+                       load_data <- "load_request_data.R"
+                     }
+                     if (chosen_menu$id %in% "b") {
+                       load_data <- "load_appeals_data.R"
+                     }
+                     if (chosen_menu$id %in% "c") {
+                       load_data <- "load_contracts_data.R"
+                     }  
+                     source(load_data)$value
+                   }
+      )
+    })
+  
+  
   output$test <- renderPrint({
-    chosen_menu$id
+    data_load()
   })
   
 }
