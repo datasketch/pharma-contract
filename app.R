@@ -28,8 +28,8 @@ ui <- panelsPage(
           uiOutput("downloads")
         ),
         body =  div(
-          verbatimTextOutput("test")
-          #uiOutput("viz_view")
+          #verbatimTextOutput("test")
+          uiOutput("viz_view")
         )
   ),
   panel(title = "Detail",
@@ -374,13 +374,126 @@ server <- function(input, output, session) {
                                   agg = "count", 
                                   group_var = var_to_viz(),
                                   to_agg = NULL, 
-                                  name = var_to_viz())
+                                  name = "Total")
+  })
+  
+  # viz styles --------------------------------------------------------------
+  
+  viz_opts <- reactive({
+    req(data_viz())
+    req(actual_but$active)
+    
+    myFunc <- paste0("function(event) {Shiny.onInputChange('", 'hcClicked', "', {id:event.point.name, timestamp: new Date().getTime()});}")
+
+
+    opts <- list(
+      data = dplyr::as_tibble(data_viz()),
+      orientation = "hor",
+      ver_title = " ",
+      hor_title = " ",
+      label_wrap_legend = 100,
+      label_wrap = 40,
+      background_color = "#ffffff",
+      axis_line_y_size = 1,
+      axis_line_color = "#dbd9d9",
+      grid_y_color = "#dbd9d9",
+      grid_x_color = "#fafafa",
+      cursor = "pointer",
+      map_zoom_snap = 0.25,
+      map_zoom_delta = 0.25,
+      map_tiles = "OpenStreetMap",
+      legend_position = "bottomleft",
+      border_weight = 0.3,
+      format_sample_num = "1,234."
+    )
+
+    if (actual_but$active == "map") {
+      opts$na_color <- "transparent"
+      opts$palette_colors <- rev(c("#ef4e00", "#f66a02", "#fb8412", "#fd9d29",
+                                            "#ffb446", "#ffca6b", "#ffdf98"))
+    } else {
+      opts$clickFunction <- htmlwidgets::JS(myFunc)
+      opts$palette_colors <- "#ef4e00"
+    }
+    
+    if (actual_but$active == "treemap") {
+      opts$dataLabels_align <- "middle"
+      opts$dataLabels_inside <- TRUE
+      opts$dataLabels_show <- TRUE
+      opts$legend_show <- FALSE
+    }
+    
+    opts
   })
   
   
-  output$test <- renderPrint({
-    data_viz()
+  # Render Viz --------------------------------------------------------------
+  
+  viz_down <- reactive({
+    req(data_viz())
+    viz <- dsapptools::viz_selection(data = data_viz(),
+                                     dic = dic_load(),
+                                     viz = actual_but$active,
+                                     num_hType = TRUE)
+    suppressWarnings(do.call(eval(parse(text=viz)),viz_opts()))
   })
+  
+
+  
+  output$hgch_viz <- highcharter::renderHighchart({
+    req(actual_but$active)
+    req(data_viz())
+    if (actual_but$active %in% c("table", "map")) return()
+    viz_down()
+  })
+
+  output$lflt_viz <- leaflet::renderLeaflet({
+    req(actual_but$active)
+    req(data_viz())
+    if (!actual_but$active %in% c("map")) return()
+    viz_down() |>
+      leaflet::setView(lng = 0, lat = -5, 1.25)
+  })
+
+  output$dt_viz <- reactable::renderReactable({
+    req(actual_but$active)
+    if (actual_but$active != "table") return()
+    req(data_down())
+    df <- dplyr::as_tibble(data_down())
+    dtable <- reactable::reactable(df,
+                                   defaultPageSize = 5,
+                                   searchable = TRUE,
+                                   showPageSizeOptions = TRUE,
+                                   width = 900, height = 700)
+    dtable
+  })
+
+  output$viz_view <- renderUI({
+    req(actual_but$active)
+    if (actual_but$active != "table") {
+      if (is.null(data_viz())) return("No information available")
+    }
+
+    viz <- actual_but$active
+    if (viz %in% c("map", "map_bubbles")) {
+      shinycustomloader::withLoader(
+        leaflet::leafletOutput("lflt_viz", height = 600),
+        type = "html", loader = "loader4"
+      )
+    } else if (viz == "table") {
+      shinycustomloader::withLoader(
+        reactable::reactableOutput("dt_viz"),
+        type = "html", loader = "loader4"
+      )
+    } else {
+      #shinycustomloader::withLoader(
+      highcharter::highchartOutput("hgch_viz", height = 600)#,
+      #   type = "html", loader = "loader4"
+      # )
+    }
+  })
+
+
   
   
   # downloads ---------------------------------------------------------------
