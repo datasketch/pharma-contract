@@ -1,0 +1,9 @@
+.Rproj.user
+.DS_Store
+.Rbuildignore
+.RData
+.Renviron
+.Rhistory
+.Rprofile
+rsconnect
+
