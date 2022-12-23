@@ -97,7 +97,7 @@ padding-bottom: 8px;
 
 /* STYLES TO VIZ ICONS */
 .head-viz {
- display: flex;
+ display: flex !important;
  gap: 10px;
 }
 
@@ -105,11 +105,12 @@ padding-bottom: 8px;
   background-color: transparent;
   display: flex !important;
   gap: 5px !important;
-  padding: 0;
+  padding: 0 !important;
 }
 
 .buttons-group .button-container {
-  height: 35px;
+  height: 35px !important;
+  width: 35px !important;
 }
 
 .button-container {
@@ -120,7 +121,7 @@ padding-bottom: 8px;
 }
 
 .buttons-group .button-style {
-  width: 30px;
+  width: 30px !important;
 }
 
 .buttons-group .button-style.active-btn {
@@ -143,14 +144,14 @@ padding-bottom: 8px;
 
 /* STYLES TO DOWNLOAD BUTTON */
 .dropdown-action-trigger {
-  background: #E73247 0% 0% no-repeat padding-box;
-  border-radius: 18px;
+  background: #E73247 !important;
+  border-radius: 18px !important;
   opacity: 1;
   font-family: inherit;
 }
 
 .dropdown-action-trigger:hover {
-  background-color: #E73247;
+  background-color: #E73247 !important;
 }
 
 

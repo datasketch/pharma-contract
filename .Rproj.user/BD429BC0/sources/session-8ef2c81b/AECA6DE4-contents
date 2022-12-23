@@ -57,7 +57,37 @@ ui <- panelsPage(
 
 server <- function(input, output, session) {
   
+  # Renderizar graficos ------------------------------------------
   
+  actual_but <- reactiveValues(active = NULL)
+  
+  observe({
+    if (is.null(input$viz_selection)) return()
+    viz_rec <- c("map", "bar", "treemap", "table")
+    if (input$viz_selection %in% viz_rec) {
+      actual_but$active <- input$viz_selection
+    } else {
+      actual_but$active <- viz_rec[1]
+    }
+  })
+  
+  output$viz_icons <- renderUI({
+    viz <- c("map", "bar", "treemap", "table")
+    viz_label <- c("Map", "Bar", "Treemap", "Table")
+    
+    suppressWarnings(
+      shinyinvoer::buttonImageInput("viz_selection",
+                                    " ",
+                                    images = viz,
+                                    tooltips = viz_label,
+                                    path = "img/viz_icons/",
+                                    active = actual_but$active,
+                                    imageStyle = list(shadow = TRUE,
+                                                      borderColor = "#ffffff",
+                                                      padding = "3px")
+      )
+    )
+  })
   
   # controls ----------------------------------------------------------------
   
@@ -301,19 +331,85 @@ server <- function(input, output, session) {
   
   # data to viz -------------------------------------------------------------
   
-  # data_viz <- reactive({
-  #   req(actual_but$active)
-  #   if (actual_but$active == "table") return()
-  #   req(data_down())
-  #   if (nrow(data_down()) == 0) return()
-  #   data_down() |>
-  #     variable_selection(viz = actual_but$active) |>
-  #     var_aggregation(dic_pharma, Total = dplyr::n())
-  # })
+  var_to_viz <- reactive({
+    if (is.null(chosen_menu$id)) return()
+    req(actual_but$active)
+    var <- NULL
+    if (chosen_menu$id == "a") {
+      if (actual_but$active %in% c("map", "treemap")) {
+        var <- "Request Country"
+      } else {
+        var <- "Status"
+      }
+    }
+    if (chosen_menu$id == "b") {
+      if (actual_but$active %in% c("map", "treemap")) {
+        var <- "Country"
+      } else {
+        var <- "Status"
+      }
+    }
+    if (chosen_menu$id == "c") {
+      if (actual_but$active %in% c("map", "treemap")) {
+        var <- "Country"
+      } else {
+        var <- "Vaccine"
+      }
+    }
+    var
+  })
+  
+  
+  data_viz <- reactive({
+    req(actual_but$active)
+    if (actual_but$active == "table") return()
+    req(data_down())
+    req(var_to_viz())
+    if (nrow(data_down()) == 0) return()
+    df <- dplyr::as_tibble(data_down())
+    df |>
+      dsapptools::variable_selection(viz = actual_but$active,
+                                     path = NULL, var_to_viz()) |> 
+      dsapptools::var_aggregation(dic = dic_load(), 
+                                  agg = "count", 
+                                  group_var = var_to_viz(),
+                                  to_agg = NULL, 
+                                  name = var_to_viz())
+  })
   
   
   output$test <- renderPrint({
-    data_down()
+    data_viz()
+  })
+  
+  
+  # downloads ---------------------------------------------------------------
+  
+  output$downloads <- renderUI({
+    if (is.null(actual_but$active)) return()
+    if (actual_but$active != "table") {
+      dsmodules::downloadImageUI("download_viz",
+                                 dropdownLabel ="Download",
+                                 formats = c("jpeg", "pdf", "png", "html"),
+                                 display = "dropdown",
+                                 text = "Descargar")
+    } else {
+      dsmodules::downloadTableUI("dropdown_table",
+                                 dropdownLabel = "Download",
+                                 formats = c("csv", "xlsx", "json"),
+                                 display = "dropdown", text = "Descargar")
+    }
+  })
+  
+  observe({
+    dsmodules::downloadTableServer("dropdown_table",
+                                   element = data_down(),
+                                   formats = c("csv", "xlsx", "json"))
+    dsmodules::downloadImageServer("download_viz",
+                                   element = viz_down(),
+                                   lib = "highcharter",
+                                   formats = c("jpeg", "pdf", "png", "html"),
+                                   file_prefix = "plot")
   })
   
 }
