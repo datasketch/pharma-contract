@@ -93,7 +93,7 @@ server <- function(input, output, session) {
         l[[button_id]] <- div(l[[button_id]],
                               selectizeInput("request_countries", 
                                              "Country",
-                                             setdiff(unique(df$`Request Country`), NA),
+                                             c("All", setdiff(unique(df$`Request Country`), NA)),
                                              multiple = TRUE,
                                              options = list(
                                                placeholder = "All",
@@ -102,7 +102,7 @@ server <- function(input, output, session) {
                                                  "drag_drop"))),
                               selectizeInput("request_status", 
                                              "Status",
-                                             setdiff(unique(df$Status), NA),
+                                             c("All", setdiff(unique(df$Status), NA)),
                                              multiple = TRUE,
                                              options = list(
                                                placeholder = "All",
@@ -119,7 +119,7 @@ server <- function(input, output, session) {
         l[[button_id]] <- div(l[[button_id]],
                               selectizeInput("appeals_countries", 
                                              "Country",
-                                             setdiff(unique(df$Country), NA),
+                                             c("All", setdiff(unique(df$Country), NA)),
                                              multiple = TRUE,
                                              options = list(
                                                placeholder = "All",
@@ -128,7 +128,7 @@ server <- function(input, output, session) {
                                                  "drag_drop"))),
                               selectizeInput("appeals_status", 
                                              "Status",
-                                             setdiff(unique(df$Status), NA),
+                                             c("All", setdiff(unique(df$Status), NA)),
                                              multiple = TRUE,
                                              options = list(
                                                placeholder = "All",
@@ -145,7 +145,7 @@ server <- function(input, output, session) {
         l[[button_id]] <- div(l[[button_id]],
                               selectizeInput("contracts_countries", 
                                              "Country",
-                                             setdiff(unique(df$Country), NA),
+                                             c("All", setdiff(unique(df$Country), NA)),
                                              multiple = TRUE,
                                              options = list(
                                                placeholder = "All",
@@ -153,8 +153,8 @@ server <- function(input, output, session) {
                                                  "remove_button",
                                                  "drag_drop"))),
                               selectizeInput("contracts_supplier", 
-                                             "Status",
-                                             setdiff(unique(df$Supplier), NA),
+                                             "Supplier",
+                                             c("All", setdiff(unique(df$Supplier), NA)),
                                              multiple = TRUE,
                                              options = list(
                                                placeholder = "All",
@@ -163,7 +163,7 @@ server <- function(input, output, session) {
                                                  "drag_drop"))),
                               selectizeInput("contracts_vaccine", 
                                              "Vaccine",
-                                             setdiff(unique(df$Vaccine), NA),
+                                             c("All", setdiff(unique(df$Vaccine), NA)),
                                              multiple = TRUE,
                                              options = list(
                                                placeholder = "All",
@@ -222,8 +222,98 @@ server <- function(input, output, session) {
     })
   
   
+  # updates all -------------------------------------------------------------
+  
+  observe({
+    if ("All" %in% input$request_countries) {
+      updateSelectizeInput(session, inputId = "request_countries", selected = "All")
+    }
+    if ("All" %in% input$request_status) {
+      updateSelectizeInput(session, inputId = "request_status", selected = "All")
+    }
+    if ("All" %in% input$appeals_countries) {
+      updateSelectizeInput(session, inputId = "appeals_countries", selected = "All")
+    }
+    if ("All" %in% input$appeals_status) {
+      updateSelectizeInput(session, inputId = "appeals_status", selected = "All")
+    }
+    if ("All" %in% input$contracts_countries) {
+      updateSelectizeInput(session, inputId = "contracts_countries", selected = "All")
+    }
+    if ("All" %in% input$contracts_supplier) {
+      updateSelectizeInput(session, inputId = "contracts_supplier", selected = "All")
+    }
+    if ("All" %in% input$contracts_vaccine) {
+      updateSelectizeInput(session, inputId = "contracts_vaccine", selected = "All")
+    }
+  })
+  
+  
+  # Data filter -------------------------------------------------------------
+  
+  list_inputs <- reactive({
+    if (is.null(chosen_menu$id)) return()
+    ls <- NULL
+    if (chosen_menu$id == "a") {
+    ls <-  list("Request Country" = input$request_countries,
+           "Status" = input$request_status)
+    }
+    if (chosen_menu$id == "b") {
+    ls <-  list("Country" = input$appeals_countries,
+           "Status" = input$appeals_status)
+    }
+    if (chosen_menu$id == "c") {
+    ls <-  list("Country" = input$contracts_countries,
+           "Supplier" = input$contracts_supplier,
+           "Vaccine" = input$contracts_vaccine)
+    }
+    ls
+  })
+  
+  dic_load <- reactive({
+    if (is.null(chosen_menu$id)) return()
+    dic <- NULL
+    if (chosen_menu$id == "a") {
+      dic <- load("data/dic_request.RData")
+      dic <- dic_request
+    }
+    if (chosen_menu$id == "b") {
+      dic <- load("data/dic_appeals.RData")
+      dic <- dic_appeals
+    }
+    if (chosen_menu$id == "c") {
+      dic <- load("data/dic_contracts.RData")
+      dic <- dic_contracts
+    }
+    dic
+  })
+  
+  data_down <- reactive({
+    req(list_inputs())
+    ls <- list_inputs()
+    df <- dsapptools::data_filter(data = dplyr::as_tibble(data_load()),
+                                  dic = dic_load(),
+                                  var_inputs = ls,
+                                  special_placeholder = "All",
+                                  .id = NULL)
+    df
+  })
+  
+  # data to viz -------------------------------------------------------------
+  
+  # data_viz <- reactive({
+  #   req(actual_but$active)
+  #   if (actual_but$active == "table") return()
+  #   req(data_down())
+  #   if (nrow(data_down()) == 0) return()
+  #   data_down() |>
+  #     variable_selection(viz = actual_but$active) |>
+  #     var_aggregation(dic_pharma, Total = dplyr::n())
+  # })
+  
+  
   output$test <- renderPrint({
-    data_load()
+    data_down()
   })
   
 }
