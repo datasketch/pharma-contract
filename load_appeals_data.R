@@ -7,10 +7,20 @@ appeals <- appeals |> dplyr::rename(id_appeals = id,
                                     id_movement = `TI Movement`
 )
 
-ls_app <- purrr::map(names(appeals), function(i) {
+ls_app <- purrr::map(names(appeals)[-1], function(i) {
   unlist_var(appeals[,c("id_appeals", i)], i) #|>
   #tidyr::drop_na({{ i }})
 }) |>  purrr::reduce(dplyr::left_join, by = "id_appeals")
+
+ls_app <- ls_app |> dplyr::select(-thumbnails)
+
+ls_app <- ls_app |>
+  dplyr::group_by(id_appeals) |> 
+  dplyr::summarise(dplyr::across(dplyr::everything(),
+                                 dplyr::funs(paste_vector)))
+names(ls_app) <- gsub("_paste_vector", "", names(ls_app))
+
+
 
 countries_appeals <- countries |>
   dplyr::select(id_countries, id_appeals, Country) |>

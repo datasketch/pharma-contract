@@ -1,5 +1,8 @@
+webshot::install_phantomjs(force = FALSE)
 library(airtabler)
 library(dsapptools)
+library(hgchmagic)
+library(lfltmagic)
 library(shiny)
 library(shinypanels)
 
@@ -28,7 +31,7 @@ ui <- panelsPage(
           uiOutput("downloads")
         ),
         body =  div(
-          #verbatimTextOutput("test")
+          
           uiOutput("viz_view")
         )
   ),
@@ -38,12 +41,15 @@ ui <- panelsPage(
         width = 300,
         color = "chardonnay",
         body =  div(
+          #verbatimTextOutput("test")
           shinycustomloader::withLoader(
             uiOutput("click_info"),
             type = "html", loader = "loader4"
           )
         ),
         footer =  div(class = "footer-logos",
+                      img(src= 'img/logos/logo_gti.png',
+                          width = 70, height = 70),
                       tags$a(
                         href="https://www.datasketch.co", target="blank",
                         img(src= 'img/logos/logo_ds.svg',
@@ -93,14 +99,14 @@ server <- function(input, output, session) {
   
   list_menu <- reactive({
     dsapptools:::make_buttons(c("a", "b", "c"),
-                              c("<div class = 'info-menu'> <div class = 'arrow-menu'>&#x2192;</div>Request</div>",
-                                "<div class = 'info-menu'> <div class = 'arrow-menu'>&#x2192;</div>Appeals</div>",
+                              c("<div class = 'info-menu'> <div class = 'arrow-menu'>&#x2192;</div>Freedom of Information Requests</div>",
+                                "<div class = 'info-menu'> <div class = 'arrow-menu'>&#x2192;</div>Appealed FOI Requests</div>",
                                 "<div class = 'info-menu'> <div class = 'arrow-menu'>&#x2192;</div>Contracts details</div>"),
                               class_buttons = "menu-line")
   })
   
   
-  chosen_menu <- reactiveValues(id = NULL)
+  chosen_menu <- reactiveValues(id = "a")
   observeEvent(input$last_click,{
     chosen_menu$id <- input$last_click
   })
@@ -285,17 +291,17 @@ server <- function(input, output, session) {
     if (is.null(chosen_menu$id)) return()
     ls <- NULL
     if (chosen_menu$id == "a") {
-    ls <-  list("Request Country" = input$request_countries,
-           "Status" = input$request_status)
+      ls <-  list("Request Country" = input$request_countries,
+                  "Status" = input$request_status)
     }
     if (chosen_menu$id == "b") {
-    ls <-  list("Country" = input$appeals_countries,
-           "Status" = input$appeals_status)
+      ls <-  list("Country" = input$appeals_countries,
+                  "Status" = input$appeals_status)
     }
     if (chosen_menu$id == "c") {
-    ls <-  list("Country" = input$contracts_countries,
-           "Supplier" = input$contracts_supplier,
-           "Vaccine" = input$contracts_vaccine)
+      ls <-  list("Country" = input$contracts_countries,
+                  "Supplier" = input$contracts_supplier,
+                  "Vaccine" = input$contracts_vaccine)
     }
     ls
   })
@@ -384,13 +390,16 @@ server <- function(input, output, session) {
     req(actual_but$active)
     
     myFunc <- paste0("function(event) {Shiny.onInputChange('", 'hcClicked', "', {id:event.point.name, timestamp: new Date().getTime()});}")
-
+    df <- dplyr::as_tibble(data_viz())
+    nBins <- max(df[[2]], na.rm = T) - 1
+    if (max(df[[2]], na.rm = T) == 1) nBins <- 3
 
     opts <- list(
-      data = dplyr::as_tibble(data_viz()),
+      data = df,
       orientation = "hor",
       ver_title = " ",
       hor_title = " ",
+      drop_na = TRUE,
       label_wrap_legend = 100,
       label_wrap = 40,
       background_color = "#ffffff",
@@ -401,21 +410,23 @@ server <- function(input, output, session) {
       cursor = "pointer",
       map_zoom_snap = 0.25,
       map_zoom_delta = 0.25,
-      map_tiles = "OpenStreetMap",
+      map_provider_tile = "url",
+      map_extra_layout = "https://maps.geoapify.com/v1/tile/osm-bright-smooth/{z}/{x}/{y}.png?apiKey=3ccf9d5f19894b32b502485362c99163",
+      map_name_layout = "osm-brigh",
       legend_position = "bottomleft",
       border_weight = 0.3,
       format_sample_num = "1,234."
     )
-
+    
     if (actual_but$active == "map") {
       opts$na_color <- "transparent"
-      opts$palette_colors <- rev(c("#ef4e00", "#f66a02", "#fb8412", "#fd9d29",
-                                            "#ffb446", "#ffca6b", "#ffdf98"))
+      opts$palette_colors <-  c("#FFF6FF", "#da3592")
+      opts$map_color_scale <- "Bins"
+      opts$map_bins <- nBins
     } else {
       opts$clickFunction <- htmlwidgets::JS(myFunc)
       opts$palette_colors <- "#ef4e00"
     }
-    
     if (actual_but$active == "treemap") {
       opts$dataLabels_align <- "middle"
       opts$dataLabels_inside <- TRUE
@@ -438,7 +449,7 @@ server <- function(input, output, session) {
     suppressWarnings(do.call(eval(parse(text=viz)),viz_opts()))
   })
   
-
+  
   
   output$hgch_viz <- highcharter::renderHighchart({
     req(actual_but$active)
@@ -446,7 +457,7 @@ server <- function(input, output, session) {
     if (actual_but$active %in% c("table", "map")) return()
     viz_down()
   })
-
+  
   output$lflt_viz <- leaflet::renderLeaflet({
     req(actual_but$active)
     req(data_viz())
@@ -454,30 +465,69 @@ server <- function(input, output, session) {
     viz_down() |>
       leaflet::setView(lng = 0, lat = -5, 1.25)
   })
-
+  
   output$dt_viz <- reactable::renderReactable({
     req(actual_but$active)
     if (actual_but$active != "table") return()
     req(data_down())
     df <- dplyr::as_tibble(data_down())
+    id_df <- grep("id", names(df))
+    if (!identical(id_df, integer())) {
+      df <- df[,-id_df]
+    }
+    id_df <- grep("createdTime|filename|size|type|width|height", names(df))
+    if (!identical(id_df, integer())) {
+      df <- df[,-id_df]
+    }
+    if ("url" %in% names(df)) {
+      df <- df |> dplyr::rename(URL = "url")
+    }
+    if ("Link to contract" %in% names(df)) {
+      df <- df |> dplyr::rename(URL = "Link to contract")
+    }
+    
     dtable <- reactable::reactable(df,
                                    defaultPageSize = 5,
                                    searchable = TRUE,
                                    showPageSizeOptions = TRUE,
-                                   width = 900, height = 700)
+                                   width = 900, height = 700,
+                                   columns = list(
+                                    URL = reactable::colDef(cell = function(URL) {
+                                       htmltools::tags$a(href = as.character(URL), target = "_blank", "link to view")
+                                     })
+                                     
+                                   )
+                                   )
     dtable
   })
-
+  
   output$viz_view <- renderUI({
     req(actual_but$active)
+    
+    if (is.null(chosen_menu$id)) {
+      return(HTML("<div class = 'back-init'>
+               <div class = 'background-viz'>
+               <img src='img/background/Background-ds.png' class = 'back-img'/></div>
+               <div class = 'back-click'>
+               <img src='img/click/click.svg' class = 'back-click-img'/><br/>
+               <b>Select</b> a filter to see the visualization</div>
+                  </div>")
+      )
+    }
+    
+    heigh_viz <- 600
+    if (!is.null(input$dimension)) {
+      heigh_viz <- input$dimension[2] - 150
+    }
+    
     if (actual_but$active != "table") {
       if (is.null(data_viz())) return("No information available")
     }
-
+    
     viz <- actual_but$active
     if (viz %in% c("map", "map_bubbles")) {
       shinycustomloader::withLoader(
-        leaflet::leafletOutput("lflt_viz", height = 600),
+        leaflet::leafletOutput("lflt_viz", height = heigh_viz),
         type = "html", loader = "loader4"
       )
     } else if (viz == "table") {
@@ -487,13 +537,136 @@ server <- function(input, output, session) {
       )
     } else {
       #shinycustomloader::withLoader(
-      highcharter::highchartOutput("hgch_viz", height = 600)#,
+      highcharter::highchartOutput("hgch_viz", height = heigh_viz)#,
       #   type = "html", loader = "loader4"
       # )
     }
   })
-
-
+  
+  
+  
+  # save click --------------------------------------------------------------
+  
+  
+  click_viz <- reactiveValues(info = NULL)
+  
+  
+  observeEvent(input$lflt_viz_shape_click, {
+    req(chosen_menu$id)
+    if (is.null(data_viz())) return()
+    if (!any(grepl("Country", names(data_viz())))) return()
+    req(actual_but$active)
+    if (actual_but$active != "map") return()
+    click <- input$lflt_viz_shape_click
+    if (!is.null(click)) {
+      if (chosen_menu$id == "a") {
+        click_viz$info <- list("Request Country" = click$id)
+      } else {
+        click_viz$info <- list("Country" = click$id)
+      }
+    }
+    
+  })
+  
+  observeEvent(input$hcClicked, {
+    req(chosen_menu$id)
+    if (is.null(data_viz())) return()
+    click <- input$hcClicked
+    if (actual_but$active %in% c("bar")) {
+      if (chosen_menu$id == "c") {
+        if (!"Vaccine" %in% names(data_viz())) return()
+        if (!is.null(click)) {
+          click_viz$info <- list("Vaccine" = click$id)
+        }
+      } else {
+        if (!"Status" %in% names(data_viz())) return()
+        if (!is.null(click)) {
+          click_viz$info <- list("Status" = click$id)
+        }
+      }
+      
+      
+    }
+    if (actual_but$active == "treemap") {
+      if (!is.null(click)) {
+        if (!any(grepl("Country", names(data_viz())))) return()
+        if (chosen_menu$id == "a") {
+          click_viz$info <- list("Request Country" = click$id)
+        } else {
+          click_viz$info <- list("Country" = click$id)
+        }
+      }
+    }
+  })
+  
+  
+  info_click <- reactive({
+    req(chosen_menu$id)
+    tx <- NULL
+    if (chosen_menu$id == "a") {
+      tx <- c("Request Country", "Status", "Date", "Authority", "url")
+    }
+    if (chosen_menu$id == "b") {
+      tx <- c("Country", "Status", "url")
+    }
+    if (chosen_menu$id == "c") {
+      tx <- c("Country", "Supplier", "Vaccine")
+    }
+    tx
+  })
+  
+  # Click Info --------------------------------------------------------------
+  
+  output$click_info <-renderUI({ # reactive({#
+    tx <- HTML("<div class = 'click'>
+               <img src='img/click/click.svg' class = 'click-img'/><br/>
+               <b>Click</b> on the visualization to see more information.")
+    if (is.null(click_viz$info)) return(tx)
+    tryCatch({
+      url_name <- "Document"
+      if (chosen_menu$id == "b") url_name <- "Attachments"
+      tx <- dsapptools::write_html_group(
+        data = dplyr::as_tibble(data_down()),
+        dic = dplyr::as_tibble(dic_load()),
+        click = click_viz$info,
+        separate_row = "url", 
+        sep_url = ",", 
+        url_name = url_name,
+        url_class = "url-style",
+        text_result_null = tx,
+        id = NULL,
+        info_click())
+    },
+    error=function(cond) {
+      return(tx)
+    })
+    
+    tx
+    # if (is.null(click_viz$info)) return(tx)
+    # if (is.null(data_viz())) return(tx)
+    # if (is.null(data_down())) return(tx)
+    # if (nrow(data_down()) == 0) return(tx)
+    # if (nrow(data_viz()) == 0) return("No information available")
+    # req(info_click())
+    # tx <- dsapptools::write_html(
+    #   data = dplyr::as_tibble(data_down()),
+    #   dic = dplyr::as_tibble(dic_load()),
+    #   click = click_viz$info,
+    #   class_title = "click-title",
+    #   class_body = "click-text",
+    #   id = NULL,
+    #   info_click())
+    #tx
+  })
+  
+  
+  
+  
+  output$test <- renderPrint({
+    click_info()
+  })
+  
+  
   
   
   # downloads ---------------------------------------------------------------
@@ -505,12 +678,12 @@ server <- function(input, output, session) {
                                  dropdownLabel ="Download",
                                  formats = c("jpeg", "pdf", "png", "html"),
                                  display = "dropdown",
-                                 text = "Descargar")
+                                 text = "Download")
     } else {
       dsmodules::downloadTableUI("dropdown_table",
                                  dropdownLabel = "Download",
                                  formats = c("csv", "xlsx", "json"),
-                                 display = "dropdown", text = "Descargar")
+                                 display = "dropdown", text = "Download")
     }
   })
   

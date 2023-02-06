@@ -23,7 +23,13 @@ other_var <- dic_request |>
 request <- request[,other_var$id] |>
   dplyr::left_join(ls_req)
 
+request <- request |> dplyr::select(-thumbnails)
 
+request <- request |>
+  dplyr::group_by(id_request, `Authority summoned`) |> 
+  dplyr::summarise(dplyr::across(dplyr::everything(),
+                                 dplyr::funs(paste_vector)))
+names(request) <- gsub("_paste_vector", "", names(request))
 # data request
 countries_request <- countries |>
   dplyr::select(id_countries, id_request, `Request Country` = Country) |>
@@ -32,7 +38,9 @@ data_request <- request |>
   dplyr::left_join(countries_request)
 data_request <- data_request |>
   dplyr::rename(Date = `Submission date (DD/MM/YYYY)`,
-                Authority = `Authority summoned`)
+                Authority = `Authority summoned`,
+                `Authority type` = `Type of authority`,
+                `Request type (formal / informal)` = `Type request`)
 data_request
 #dic_request <- homodatum::create_dic(data_request)
 #dic_request$id <- dic_request$label
