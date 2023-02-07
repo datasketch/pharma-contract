@@ -28,8 +28,8 @@ request <- request |> dplyr::select(-thumbnails)
 request <- request |>
   dplyr::group_by(id_request, `Authority summoned`) |> 
   dplyr::summarise(dplyr::across(dplyr::everything(),
-                                 dplyr::funs(paste_vector)))
-names(request) <- gsub("_paste_vector", "", names(request))
+                                 list(paste_vector)))
+names(request) <- gsub("_1", "", names(request))
 # data request
 countries_request <- countries |>
   dplyr::select(id_countries, id_request, `Request Country` = Country) |>

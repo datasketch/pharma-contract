@@ -48,7 +48,7 @@ ui <- panelsPage(
           )
         ),
         footer =  div(class = "footer-logos",
-                      img(src= 'img/logos/logo_gti.png',
+                      img(src= 'img/logos/logo_gti.jpg',
                           width = 70, height = 70),
                       tags$a(
                         href="https://www.datasketch.co", target="blank",

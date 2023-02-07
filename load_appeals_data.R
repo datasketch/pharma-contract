@@ -17,8 +17,8 @@ ls_app <- ls_app |> dplyr::select(-thumbnails)
 ls_app <- ls_app |>
   dplyr::group_by(id_appeals) |> 
   dplyr::summarise(dplyr::across(dplyr::everything(),
-                                 dplyr::funs(paste_vector)))
-names(ls_app) <- gsub("_paste_vector", "", names(ls_app))
+                                 list(paste_vector)))
+names(ls_app) <- gsub("_1", "", names(ls_app))
 
 
 
